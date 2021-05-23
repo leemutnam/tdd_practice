@@ -16,9 +16,11 @@
 const productController = require('../../controller/products')
 const productModel = require('../../models/Product')
 const newProduct = require('../data/new-product.json')
+const allProducts = require('../data/all-products.json')
 const httpMocks = require('node-mocks-http')
 
 productModel.create = jest.fn()
+productModel.find = jest.fn()
 
 describe('Product Controller Create', () => {
   let req, res, next
@@ -51,6 +53,52 @@ describe('Product Controller Create', () => {
     const rejectedPromise = Promise.reject(errorMessage)
     productModel.create.mockReturnValue(rejectedPromise)
     await productController.createProduct(req, res, next)
+    expect(next).toBeCalledWith(errorMessage)
+  })
+})
+
+describe('Product Controller Read', () => {
+  let req, res, next
+  beforeEach(() => {
+    req = httpMocks.createRequest()
+    res = httpMocks.createResponse()
+    next = jest.fn()
+    req.body = allProducts
+  })
+  it('should have a getProducts function', async() => {
+    expect(typeof productController.getProducts).toBe('function')
+  })
+  it('should call getProducts', async () => {
+    await productController.getProducts(req, res, next)
+    expect(productModel.find).toBeCalled()
+  })
+  it("should call ProductModel.find({})", async () => {
+    await productController.getProducts(req, res, next);
+    expect(productModel.find).toHaveBeenCalledWith({})
+  })
+  it('should return 200 response code', async () => {
+    productModel.find.mockReturnValue(allProducts)
+    await productController.getProducts(req, res, next)
+    expect(res.statusCode).toBe(200)
+    expect(res._isEndCalled()).toBeTruthy()
+  })
+  it('should return products', async () => {
+    productModel.find.mockReturnValue(allProducts)
+    await productController.getProducts(req, res, next)
+    expect(res._getJSONData()).toStrictEqual(allProducts)
+  })
+  it('should return 400 response code', async () => {
+    productModel.find.mockReturnValue([])
+    await productController.getProducts(req, res, next)
+    expect(res.statusCode).toBe(400)
+    expect(res._getJSONData()).toStrictEqual({ message: 'products is not found' })
+  })
+  it('should handle errors', async () => {
+    const errorMessage = { message: "Error finding product data" }
+    const rejectedPromise = Promise.reject(errorMessage)
+    productModel.find.mockReturnValue(rejectedPromise);
+    await productController.getProducts(req, res, next);
+    expect(next).toHaveBeenCalledWith(errorMessage)
     expect(next).toBeCalledWith(errorMessage)
   })
 })
